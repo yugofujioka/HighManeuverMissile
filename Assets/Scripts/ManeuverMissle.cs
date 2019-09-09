@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// 高機動ミサイル
 /// </summary>
-public struct ManuverMissle {
+public struct ManeuverMissle {
 	#region DEFINE
 	private const float FRAME_TIME = 0.016667f;
 
@@ -50,7 +50,7 @@ public struct ManuverMissle {
 	
 	private MissileParam param;
 
-	private ManuverTrail trail;  // トレイルエフェクト
+	private ManeuverTrail trail;  // トレイルエフェクト
 	private float inertiaRatio;  // 慣性倍率
 
 	private int index;    // 稼働No.（トレイル用）
@@ -66,7 +66,7 @@ public struct ManuverMissle {
 	/// </summary>
 	/// <param name="index">ミサイルNo.</param>
 	/// <param name="trail">トレイルエフェクト</param>
-	public void Initialize(int index, ManuverTrail trail) {
+	public void Initialize(int index, ManeuverTrail trail) {
 		this.index = index;
 		this.trail = trail;
 	}

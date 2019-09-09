@@ -5,7 +5,7 @@ using UnityEngine;
 /// <summary>
 /// GPUトレイル
 /// </summary>
-public sealed class ManuverTrail : MonoBehaviour {
+public sealed class ManeuverTrail : MonoBehaviour {
 	#region DEFINE
 	private static class CSPARAM {
 		public static readonly string CALC_TRAIL = "CalcTrail";

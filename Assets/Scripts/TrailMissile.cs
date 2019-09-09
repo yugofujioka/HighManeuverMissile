@@ -11,7 +11,7 @@ public class TrailMissile : MonoBehaviour {
 
 
 	#region MEMBER
-	public ManuverTrail trail;  // トレイルエフェクト
+	public ManeuverTrail trail;  // トレイルエフェクト
 	public Transform target;   // 目標
 	public float startSpeed;   // 初速（発射直後の速度）
 	public float maxSpeed;     // 最大速度（追従中の最大速度、非旋回中に加速がかかるので最大閾値）

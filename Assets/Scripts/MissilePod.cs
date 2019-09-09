@@ -35,7 +35,7 @@ public class MissilePod : MonoBehaviour {
 	public bool front = true;
 	public int shootMax = 16;          // 射撃数（※トレイルバッファ数以上は出ない）
 	public float frontPower = 1f;
-	public ManuverTrail trail = null;  // トレイルクラス
+	public ManeuverTrail trail = null;  // トレイルクラス
 	public Transform[] target = null;  // 攻撃対象
 	public Mesh missileMesh = null;    // ミサイル用メッシュ
 	public Material missileMat = null; // ミサイル用マテリアル
@@ -44,13 +44,13 @@ public class MissilePod : MonoBehaviour {
 	private bool shooting = false;
 	private int shootWait = 0;
 	private int shootCount = 0;
-	private ManuverMissle[] missile = null;
+	private ManeuverMissle[] missile = null;
 	private List<Matrix4x4> matrixList = null;
 
 	private List<Vector3> directs = new List<Vector3>();
 
 	void Start() {
-		this.missile = new ManuverMissle[this.trail.trailNum];
+		this.missile = new ManeuverMissle[this.trail.trailNum];
 		this.matrixList = new List<Matrix4x4>(this.trail.trailNum);
 
 		for (int i = 0; i < this.missile.Length; ++i)

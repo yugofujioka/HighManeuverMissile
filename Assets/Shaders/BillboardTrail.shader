@@ -26,7 +26,7 @@
 			#pragma fragment frag
 
 			#include "UnityCG.cginc"
-			#include "ManuverTrail.cginc"
+			#include "ManeuverTrail.cginc"
 
 			StructuredBuffer<Trail> _TrailBuffer;
 			StructuredBuffer<Node> _NodeBuffer;

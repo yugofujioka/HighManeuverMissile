@@ -28,7 +28,7 @@
 
 #pragma kernel CalcTrail
 
-#include "ManuverTrail.cginc"
+#include "ManeuverTrail.cginc"
 
 int _Split;
 float _DeltaTime;
