@@ -30,36 +30,36 @@
 /// https://www.slideshare.net/UnityTechnologiesJapan/unite-2018-tokyo
 /// </summary>
 public class SpringTorque : MonoBehaviour {
-	public Transform target;        // 目標
-	public float torqueLevel = 10f; // 旋回力（バネ係数）
-	public float damper = 4f;       // 旋回減衰力（弱すぎるとブレる、強すぎると動きが重い）
+    public Transform target;        // 目標
+    public float torqueLevel = 10f; // 旋回力（バネ係数）
+    public float damper = 4f;       // 旋回減衰力（弱すぎるとブレる、強すぎると動きが重い）
 
-	private Vector3 omega;    // 角速度
+    private Vector3 omega;    // 角速度
 
 
-	void Update() {
-		// バネトルク
-		var targetpos = target.position;
-		var diff = targetpos - transform.position;
-		var up = transform.TransformVector(Vector3.up);
-		var targetrot = Quaternion.LookRotation(diff, up);
-		var myrot = transform.rotation;
-		var rot = targetrot * Quaternion.Inverse(myrot);
-		if (rot.w < 0f) {
-			rot.x = -rot.x;
-			rot.y = -rot.y;
-			rot.z = -rot.z;
-		}
-		var torque = new Vector3(rot.x, rot.y, rot.z);
+    void Update() {
+        // バネトルク
+        var targetpos = target.position;
+        var diff = targetpos - transform.position;
+        var up = transform.TransformVector(Vector3.up);
+        var targetrot = Quaternion.LookRotation(diff, up);
+        var myrot = transform.rotation;
+        var rot = targetrot * Quaternion.Inverse(myrot);
+        if (rot.w < 0f) {
+            rot.x = -rot.x;
+            rot.y = -rot.y;
+            rot.z = -rot.z;
+        }
+        var torque = new Vector3(rot.x, rot.y, rot.z);
 
-		// 角速度の更新
-		var dt = Time.deltaTime;
-		omega += torque * (torqueLevel * dt);
-		omega -= omega * (damper * dt);
-		// 回転値の更新
-		var r = omega * dt;
-		var w = Mathf.Sqrt(1f - r.sqrMagnitude);
-		var q = new Quaternion(r.x, r.y, r.z, w);
-		transform.rotation = q * myrot;
-	}
+        // 角速度の更新
+        var dt = Time.deltaTime;
+        omega += torque * (torqueLevel * dt);
+        omega -= omega * (damper * dt);
+        // 回転値の更新
+        var r = omega * dt;
+        var w = Mathf.Sqrt(1f - r.sqrMagnitude);
+        var q = new Quaternion(r.x, r.y, r.z, w);
+        transform.rotation = q * myrot;
+    }
 }

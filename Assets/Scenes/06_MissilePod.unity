@@ -634,7 +634,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   csTrail: {fileID: 7200000, guid: 2782642d144e408429aaee3b25cc8e89, type: 3}
   material: {fileID: 2100000, guid: 6e152db8e0b50a84aac0d2ab349bec39, type: 2}
-  materialForJob: {fileID: 2100000, guid: 54534c048141de347b2190139ed707e7, type: 2}
+  materialForMesh: {fileID: 2100000, guid: 54534c048141de347b2190139ed707e7, type: 2}
   trailNum: 64
   split: 2
   life: 3

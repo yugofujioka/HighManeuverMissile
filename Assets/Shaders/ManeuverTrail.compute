@@ -39,173 +39,173 @@ RWStructuredBuffer<Node> _NodeBuffer;
 StructuredBuffer<Input> _InputBuffer;
 
 Node GetNode(int trailIdx, int nodeIdx) {
-	return _NodeBuffer[ToNodeBufIdx(trailIdx, nodeIdx)];
+    return _NodeBuffer[ToNodeBufIdx(trailIdx, nodeIdx)];
 }
 void SetNode(Node node, int trailIdx, int nodeIdx) {
-	_NodeBuffer[ToNodeBufIdx(trailIdx, nodeIdx)] = node;
+    _NodeBuffer[ToNodeBufIdx(trailIdx, nodeIdx)] = node;
 }
 
 /// <summary>
 /// Catmul-Rom曲線
 /// </summary>
 float GetT(float t, float3 p0, float3 p1) {
-	if (distance(p0, p1) < 0.0001)
-		return t;
-	float alpha = 0.5;
-	float a = pow((p1.x - p0.x), 2.0f) + pow((p1.y - p0.y), 2.0f) + pow((p1.z - p0.z), 2.0f);
-	float b = pow(a, 0.5f);
-	float c = pow(b, alpha);
-	return (c + t);
+    if (distance(p0, p1) < 0.0001)
+        return t;
+    float alpha = 0.5;
+    float a = pow((p1.x - p0.x), 2.0f) + pow((p1.y - p0.y), 2.0f) + pow((p1.z - p0.z), 2.0f);
+    float b = pow(a, 0.5f);
+    float c = pow(b, alpha);
+    return (c + t);
 }
 float3 CatmulRom(float t, float3 p0, float3 p1, float3 p2, float3 p3) {
-	float t0 = 0.0f;
-	float t1 = GetT(t0, p0, p1);
-	float t2 = GetT(t1, p1, p2);
-	float t3 = GetT(t2, p2, p3);
+    float t0 = 0.0f;
+    float t1 = GetT(t0, p0, p1);
+    float t2 = GetT(t1, p1, p2);
+    float t3 = GetT(t2, p2, p3);
 
-	t = lerp(t1, t2, t);
-	float3 A1 = (t1 - t) / (t1 - t0) * p0 + (t - t0) / (t1 - t0) * p1;
-	float3 A2 = (t2 - t) / (t2 - t1) * p1 + (t - t1) / (t2 - t1) * p2;
-	float3 A3 = (t3 - t) / (t3 - t2) * p2 + (t - t2) / (t3 - t2) * p3;
+    t = lerp(t1, t2, t);
+    float3 A1 = (t1 - t) / (t1 - t0) * p0 + (t - t0) / (t1 - t0) * p1;
+    float3 A2 = (t2 - t) / (t2 - t1) * p1 + (t - t1) / (t2 - t1) * p2;
+    float3 A3 = (t3 - t) / (t3 - t2) * p2 + (t - t2) / (t3 - t2) * p3;
 
-	float3 B1 = (t2 - t) / (t2 - t0) * A1 + (t - t0) / (t2 - t0) * A2;
-	float3 B2 = (t3 - t) / (t3 - t1) * A2 + (t - t1) / (t3 - t1) * A3;
+    float3 B1 = (t2 - t) / (t2 - t0) * A1 + (t - t0) / (t2 - t0) * A2;
+    float3 B2 = (t3 - t) / (t3 - t1) * A2 + (t - t1) / (t3 - t1) * A3;
 
-	float3 C = (t2 - t) / (t2 - t1) * B1 + (t - t1) / (t2 - t1) * B2;
-	return C;
+    float3 C = (t2 - t) / (t2 - t1) * B1 + (t - t1) / (t2 - t1) * B2;
+    return C;
 }
 
 [numthreads(64, 1, 1)]
 void CalcTrail(uint3 id : SV_DispatchThreadID) {
-	uint trailIdx = id.x;
-	if (trailIdx >= _TrailNum)
-		return;
+    uint trailIdx = id.x;
+    if (trailIdx >= _TrailNum)
+        return;
 
-	Trail trail = _TrailBuffer[trailIdx];
-	Input input = _InputBuffer[trailIdx];
-	int currentNodeIdx = trail.currentNodeIdx;
-	int startNodeIdx = trailIdx * _NodeNumPerTrail;
-	int inc = _Split;
-	float dt = 1.0 / _Split;
+    Trail trail = _TrailBuffer[trailIdx];
+    Input input = _InputBuffer[trailIdx];
+    int currentNodeIdx = trail.currentNodeIdx;
+    int startNodeIdx = trailIdx * _NodeNumPerTrail;
+    int inc = _Split;
+    float dt = 1.0 / _Split;
 
-	bool first = true;
-	bool update = (input.enable > 0);
-	if (update && currentNodeIdx >= 0) {
-		Node node = GetNode(trailIdx, currentNodeIdx);
-		float dist = distance(input.position, node.position);
-		update = dist > _UpdateDistanceMin;
-		first = (input.enable > 1);
-	}
+    bool first = true;
+    bool update = (input.enable > 0);
+    if (update && currentNodeIdx >= 0) {
+        Node node = GetNode(trailIdx, currentNodeIdx);
+        float dist = distance(input.position, node.position);
+        update = dist > _UpdateDistanceMin;
+        first = (input.enable > 1);
+    }
 
-	// 追加処理
-	if (update) {
-		Node node;
-		if (first) {
-			node.time = _CheckTime;
-			node.position = input.position;
-			node.direct = input.direct;
-			node.speed = input.speed;
+    // 追加処理
+    if (update) {
+        Node node;
+        if (first) {
+            node.time = _CheckTime;
+            node.position = input.position;
+            node.direct = input.direct;
+            node.speed = input.speed;
 
-			// reset prev node
-			for (int i = 0; i < inc; i++) {
-				int idx = (currentNodeIdx + i) % _NodeNumPerTrail;
-				_NodeBuffer[startNodeIdx + idx].time = -1;
-			}
+            // reset prev node
+            for (int i = 0; i < inc; i++) {
+                int idx = (currentNodeIdx + i) % _NodeNumPerTrail;
+                _NodeBuffer[startNodeIdx + idx].time = -1;
+            }
 
-			// write new node
-			currentNodeIdx = (currentNodeIdx + inc) % _NodeNumPerTrail;
-			_NodeBuffer[startNodeIdx + currentNodeIdx] = node;
-		}
-		else {
-			int prevIdx = (currentNodeIdx - inc + _NodeNumPerTrail) % _NodeNumPerTrail;
-			Node prevNode = _NodeBuffer[startNodeIdx + prevIdx];
-			Node currentNode = _NodeBuffer[startNodeIdx + currentNodeIdx];
-			float3 currentPoint = currentNode.position;
-			float3 prevPoint = prevNode.position;
-			if (!IsValid(prevNode))
-				prevPoint = currentNode.position - currentNode.direct;
+            // write new node
+            currentNodeIdx = (currentNodeIdx + inc) % _NodeNumPerTrail;
+            _NodeBuffer[startNodeIdx + currentNodeIdx] = node;
+        }
+        else {
+            int prevIdx = (currentNodeIdx - inc + _NodeNumPerTrail) % _NodeNumPerTrail;
+            Node prevNode = _NodeBuffer[startNodeIdx + prevIdx];
+            Node currentNode = _NodeBuffer[startNodeIdx + currentNodeIdx];
+            float3 currentPoint = currentNode.position;
+            float3 prevPoint = prevNode.position;
+            if (!IsValid(prevNode))
+                prevPoint = currentNode.position - currentNode.direct;
 
-			// 補完用ノード
-			float3 next = input.position + input.direct;
-			for (int i = 1; i < inc; i++) {
-				float t = dt * i;
-				float3 pos = CatmulRom(t, prevPoint, currentPoint, input.position, next);
+            // 補完用ノード
+            float3 next = input.position + input.direct;
+            for (int i = 1; i < inc; i++) {
+                float t = dt * i;
+                float3 pos = CatmulRom(t, prevPoint, currentPoint, input.position, next);
 
-				node.time = _CheckTime - _DeltaTime * (1.0 - t);
-				node.position = pos;
-				node.direct = float3(0, 0, 0);
-				node.speed = 0;
+                node.time = _CheckTime - _DeltaTime * (1.0 - t);
+                node.position = pos;
+                node.direct = float3(0, 0, 0);
+                node.speed = 0;
 
-				// write new node
-				int idx = (currentNodeIdx + i) % _NodeNumPerTrail;
-				_NodeBuffer[startNodeIdx + idx] = node;
-			}
+                // write new node
+                int idx = (currentNodeIdx + i) % _NodeNumPerTrail;
+                _NodeBuffer[startNodeIdx + idx] = node;
+            }
 
-			// 新規ノード
-			node.time = _CheckTime;
-			node.position = input.position;
-			node.direct = input.direct;
-			node.speed = input.speed;
+            // 新規ノード
+            node.time = _CheckTime;
+            node.position = input.position;
+            node.direct = input.direct;
+            node.speed = input.speed;
 
-			// write new node
-			currentNodeIdx = (currentNodeIdx + inc) % _NodeNumPerTrail;
-			_NodeBuffer[startNodeIdx + currentNodeIdx] = node;
-		}
+            // write new node
+            currentNodeIdx = (currentNodeIdx + inc) % _NodeNumPerTrail;
+            _NodeBuffer[startNodeIdx + currentNodeIdx] = node;
+        }
 
-		// update trail
-		trail.currentNodeIdx = currentNodeIdx;
-		_TrailBuffer[trailIdx] = trail;
-	}
+        // update trail
+        trail.currentNodeIdx = currentNodeIdx;
+        _TrailBuffer[trailIdx] = trail;
+    }
 
-	// 慣性処理
-	int loopCount = _NodeNumPerTrail / inc;
-	int startIdx = input.enable > 0 ? 1 : 0;
+    // 慣性処理
+    int loopCount = _NodeNumPerTrail / inc;
+    int startIdx = input.enable > 0 ? 1 : 0;
 
-	// NOTE: 先端ノードは行わない
-	for (int m = startIdx; m < loopCount; m++) {
-		int index = currentNodeIdx - inc * m;
-		index = (index + _NodeNumPerTrail) % _NodeNumPerTrail;
-		//Node node = GetNode(trailIdx, index);
-		Node node = _NodeBuffer[startNodeIdx + index];
-		if (IsValid(node)) {
-			// 慣性
-			node.position += node.direct * (node.speed * _DeltaTime);
-			// @yuji_yasuhara Lerp easing
-			// https://qiita.com/yuji_yasuhara/items/117b8559beed1a8d8377
-			float ratio = 0.4;
-			float t = 1.0 - pow(1.0 - ratio, 10.0 * _DeltaTime);
-			node.speed = lerp(node.speed, 0, t);
+    // NOTE: 先端ノードは行わない
+    for (int m = startIdx; m < loopCount; m++) {
+        int index = currentNodeIdx - inc * m;
+        index = (index + _NodeNumPerTrail) % _NodeNumPerTrail;
+        //Node node = GetNode(trailIdx, index);
+        Node node = _NodeBuffer[startNodeIdx + index];
+        if (IsValid(node)) {
+            // 慣性
+            node.position += node.direct * (node.speed * _DeltaTime);
+            // @yuji_yasuhara Lerp easing
+            // https://qiita.com/yuji_yasuhara/items/117b8559beed1a8d8377
+            float ratio = 0.4;
+            float t = 1.0 - pow(1.0 - ratio, 10.0 * _DeltaTime);
+            node.speed = lerp(node.speed, 0, t);
 
-			//SetNode(node, trailIdx, index);
-			_NodeBuffer[startNodeIdx + index] = node;
-		}
-	}
-	// 補完
-	for (int n = 1; n < loopCount; n++) {
-		int index = (currentNodeIdx - inc * n + _NodeNumPerTrail) % _NodeNumPerTrail;
-		Node node = _NodeBuffer[startNodeIdx + index];
-		if (!IsValid(node))
-			break;
+            //SetNode(node, trailIdx, index);
+            _NodeBuffer[startNodeIdx + index] = node;
+        }
+    }
+    // 補完
+    for (int n = 1; n < loopCount; n++) {
+        int index = (currentNodeIdx - inc * n + _NodeNumPerTrail) % _NodeNumPerTrail;
+        Node node = _NodeBuffer[startNodeIdx + index];
+        if (!IsValid(node))
+            break;
 
-		Node next = GetNode(trailIdx, index + inc);
-		Node next2 = GetNode(trailIdx, index + inc * 2);
-		float3 nextPoint = IsValid(next2) ? next2.position : (next.position + next.direct);
+        Node next = GetNode(trailIdx, index + inc);
+        Node next2 = GetNode(trailIdx, index + inc * 2);
+        float3 nextPoint = IsValid(next2) ? next2.position : (next.position + next.direct);
 
-		// NOTE: 減算するので事前に足してマイナスにならないようにする
-		int prevIdx = (index - inc + _NodeNumPerTrail) % _NodeNumPerTrail;
-		//Node prev = GetNode(trailIdx, prevIdx);
-		Node prev = _NodeBuffer[startNodeIdx + prevIdx];
-		float3 prevPoint = IsValid(prev) ? prev.position : (node.position - node.direct);
+        // NOTE: 減算するので事前に足してマイナスにならないようにする
+        int prevIdx = (index - inc + _NodeNumPerTrail) % _NodeNumPerTrail;
+        //Node prev = GetNode(trailIdx, prevIdx);
+        Node prev = _NodeBuffer[startNodeIdx + prevIdx];
+        float3 prevPoint = IsValid(prev) ? prev.position : (node.position - node.direct);
 
-		for (int i = 1; i < inc; i++) {
-			float t = dt * i;
-			float3 pos = CatmulRom(t, prevPoint, node.position, next.position, nextPoint);
-			int splitIdx = (index + i) % _NodeNumPerTrail;
-			//Node splitNode = GetNode(trailIdx, splitIdx);
-			Node splitNode = _NodeBuffer[startNodeIdx + splitIdx];
-			splitNode.position = pos;
-			//SetNode(splitNode, trailIdx, splitIdx);
-			_NodeBuffer[startNodeIdx + splitIdx] = splitNode;
-		}
-	}
+        for (int i = 1; i < inc; i++) {
+            float t = dt * i;
+            float3 pos = CatmulRom(t, prevPoint, node.position, next.position, nextPoint);
+            int splitIdx = (index + i) % _NodeNumPerTrail;
+            //Node splitNode = GetNode(trailIdx, splitIdx);
+            Node splitNode = _NodeBuffer[startNodeIdx + splitIdx];
+            splitNode.position = pos;
+            //SetNode(splitNode, trailIdx, splitIdx);
+            _NodeBuffer[startNodeIdx + splitIdx] = splitNode;
+        }
+    }
 }
