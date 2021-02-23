@@ -79,10 +79,16 @@ public struct ManeuverMissle {
 		// コマ送りチェック用
 		elapsedTime = FRAME_TIME;
 
+		bool end = false;
+#if false
+		// 動作確認用直進
+		this.position += this.direct * (this.speed * elapsedTime);
+#else
 		// 急制動
 		this.PowerProc(elapsedTime);
 		// 移動
-		bool end = this.ProcTorque(elapsedTime);
+		end = this.ProcTorque(elapsedTime);
+#endif
 		// トレイル反映
 		Vector3 move = this.direct * this.speed; // 慣性の速度
 		Vector3 point = this.position - this.direct * MISSILE_LENGTH; // ミサイルのケツの位置にトレイルをつける
@@ -144,6 +150,8 @@ public struct ManeuverMissle {
 	/// 消滅
 	/// </summary>
 	public void Vanish() {
+		if (!this.active)
+			return;
 		this.active = false;
 		if (this.trail != null)
 			this.trail.StopTrail(this.index);

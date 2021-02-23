@@ -26,8 +26,8 @@
 Shader "Custom/Tubular Trail" {
 	Properties {
 		[HDR]
-		_Color("Color", Color) = (1, 1, 1, 1) // ”­ŒõF
-		_Thickness("Thickness", Range(0.01, 1)) = 0.1 // ‘¾‚³
+		_Color("Color", Color) = (1, 1, 1, 1) // ç™ºå…‰è‰²
+		_Thickness("Thickness", Range(0.01, 1)) = 0.1 // å¤ªã•
 		[Enum(UnityEngine.Rendering.BlendMode)]
 		_SrcBlend("Src Blend", Float) = 5	// SrcAlpha
 		[Enum(UnityEngine.Rendering.BlendMode)]
@@ -57,13 +57,13 @@ Shader "Custom/Tubular Trail" {
 			//float3 viewDir : TANGENT;
 		};
 
-		// NOTE: float1024ŒÂ•ª‚Ì’¸“_”‚µ‚©GeometryShader‚Åˆµ‚¦‚È‚¢‚Ì‚Å‹É—ÍŒ¸‚ç‚·
+		// NOTE: float1024å€‹åˆ†ã®é ‚ç‚¹æ•°ã—ã‹GeometryShaderã§æ‰±ãˆãªã„ã®ã§æ¥µåŠ›æ¸›ã‚‰ã™
 		struct g2f {
 			float4 position : SV_POSITION;
 			//float3 normal : NORMAL;
 		};
 
-		// Ql : @fuqunaga Unity Graphics Programming vol.2 GPU Trail
+		// å‚è€ƒ : @fuqunaga Unity Graphics Programming vol.2 GPU Trail
 		// https://indievisuallab.stores.jp/items/5ae077b850bbc30f3a000a6d
 		v2g vert(uint id : SV_VertexID, uint iid : SV_InstanceID) {
 			v2g Out;
@@ -84,17 +84,17 @@ Shader "Custom/Tubular Trail" {
 			return Out;
 		}
 
-		// Ql : @mattaz TubularShader.shader
+		// å‚è€ƒ : @mattaz TubularShader.shader
 		// https://github.com/mattatz/Dendrite
 		[maxvertexcount(180)] // 9*2 + 9*9*2
 		void geom(point v2g IN[1], inout TriangleStream<g2f> Out) {
 			float3 p0 = mul(unity_ObjectToWorld, IN[0].pos);
 			float3 p1 = mul(unity_ObjectToWorld, IN[0].posNext);
 
-			float3 t = normalize(p1 - p0);       // is•ûŒü
+			float3 t = normalize(p1 - p0);       // é€²è¡Œæ–¹å‘
 			float3 bn = cross(t, float3(0, 1, 0));
-			//float3 bn = cross(t, IN[0].viewDir); // ãƒxƒNƒgƒ‹
-			float3 n = cross(t, bn);             // ‰¡ƒxƒNƒgƒ‹
+			//float3 bn = cross(t, IN[0].viewDir); // ä¸Šãƒ™ã‚¯ãƒˆãƒ«
+			float3 n = cross(t, bn);             // æ¨ªãƒ™ã‚¯ãƒˆãƒ«
 
 			static const uint rows = 9, cols = 9;
 			static const float rows_inv = 1.0 / rows, cols_inv = 1.0 / (cols - 1);
@@ -149,7 +149,7 @@ Shader "Custom/Tubular Trail" {
 
 		fixed4 frag(g2f IN) : SV_Target {
 			fixed4 color = _Color;
-			//// ƒ|ƒŠƒSƒ“Šm”F—p
+			//// ãƒãƒªã‚´ãƒ³ç¢ºèªç”¨
 			//float3 normal = IN.normal;
 			//fixed3 normal01 = saturate((normal + 1.0) * 0.6);
 			//color.rgb *= normal01.xyz;
@@ -164,7 +164,7 @@ Shader "Custom/Tubular Trail" {
 
 		Pass {
 			CGPROGRAM
-			#pragma target 5.0	// Geometry Shader‚Í4.0‚¾‚ªMetal‚ª”ñ‘Î‰‚ç‚µ‚­5.0
+			#pragma target 5.0	// Geometry Shaderã®ç‚ºã«5.0
 			#pragma vertex vert
 			#pragma geometry geom
 			#pragma fragment frag

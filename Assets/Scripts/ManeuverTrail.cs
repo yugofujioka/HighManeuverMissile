@@ -1,5 +1,8 @@
 using System.Runtime.InteropServices;
 using UnityEngine;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine.Rendering;
 
 
 /// <summary>
@@ -20,6 +23,7 @@ public sealed class ManeuverTrail : MonoBehaviour {
 		public static readonly int TRAIL_BUFFER = Shader.PropertyToID("_TrailBuffer");
 		public static readonly int NODE_BUFFER = Shader.PropertyToID("_NodeBuffer");
 		public static readonly int INPUT_BUFFER = Shader.PropertyToID("_InputBuffer");
+		public static readonly int THICKNESS = Shader.PropertyToID("_Thickness");
 	}
 
 	/// <summary>
@@ -57,9 +61,10 @@ public sealed class ManeuverTrail : MonoBehaviour {
 	#region MEMBER
 	public ComputeShader csTrail = null;// トレイル用コンピュートシェーダ
 	public Material material = null;    // トレイル用マテリアル
+	public Material materialForJob = null;    // トレイル用マテリアル
 
 	public int trailNum = 1;            // トレイル最大数（今回はミサイル最大数と同義）
-	public int split = 1;				// 補完点数（割と重いのとジグザク軌道と相性悪いかも）
+	public int split = 1;               // 補完点数（割と重いのとジグザク軌道と相性悪いかも）
 	public float life = 10f;            // 制御点生存時間（トレイルの表示時間）
 	public float updateDistaceMin = 0.01f;  // 制御点最小間隔（トレイル発生最大距離）
 	public float inertia = 0.1f;        // 慣性強度（大きいほどトレイルが流れ、ぐちゃぐちゃになりやすい）
@@ -77,8 +82,13 @@ public sealed class ManeuverTrail : MonoBehaviour {
 	private Node[] initNodeArray = null;    // ノードバッファの初期化配列
 	private Input[] initInputArray = null;  // 入力バッファの初期化配列
 	private Input[] inputArray = null;      // 入力バッファ
-	//private Trail[] trailArray = null;	// データチェック用
-	//private Node[] nodeArray = null;		// データチェック用
+#if DRAW_MESH || UNITY_STANDALONE_OSX
+	private Mesh mesh;
+	private NativeArray<Vector3> vertices;
+	private NativeArray<int> indicies;
+	private NativeArray<Trail> trailArray;  // データチェック用
+	private NativeArray<Node> nodeArray;    // データチェック用
+#endif
 	#endregion
 
 
@@ -94,12 +104,19 @@ public sealed class ManeuverTrail : MonoBehaviour {
 		this.initNodeArray = new Node[this.totalNodeNum];
 		this.initInputArray = new Input[this.trailNum];
 		this.inputArray = new Input[this.trailNum];
-		//this.trailArray = new Trail[this.trailNum];
-		//this.nodeArray = new Node[this.totalNodeNum];
+#if DRAW_MESH || UNITY_STANDALONE_OSX
+		this.trailArray = new NativeArray<Trail>(this.trailNum, Allocator.Persistent);
+		this.nodeArray = new NativeArray<Node>(this.totalNodeNum, Allocator.Persistent);
+		this.vertices = new NativeArray<Vector3>(this.trailNum * this.nodeNum * BurstGeometry.cols, Allocator.Persistent);
+		this.indicies = new NativeArray<int>(this.trailNum * (this.nodeNum - 1) * BurstGeometry.quadVtx * BurstGeometry.cols, Allocator.Persistent);
+		unsafe {
+			BurstGeometry.CreateIndexBuffer(this.trailNum, this.nodeNum, (int*)indicies.GetUnsafeReadOnlyPtr());
+			//BurstGeometry.CreateIndexBuffer(this.trailNum, this.nodeNum, indicies); // Debug用
+		}
+#endif
 
 		for (int i = 0; i < this.trailNum; ++i) {
-			Trail tr = new Trail();
-			tr.currentNodeIdx = -this.split;
+			Trail tr = new Trail { currentNodeIdx = -this.split };
 			this.initTrailArray[i] = tr;
 		}
 		var initNode = new Node() { time = -1 };
@@ -133,6 +150,34 @@ public sealed class ManeuverTrail : MonoBehaviour {
 		this.material.SetFloat(CSPARAM.LIFE, this.life);
 	}
 
+#if DRAW_MESH || UNITY_STANDALONE_OSX
+	private void Start() {
+		// NOTE:
+		// 本来はバッファ含めてComputeShaderでやるべきだが
+		// 元々GPUでやろうとした本質が変わってしまうのでComputeShaderの変更なしでCPUから生成する
+
+		// Meshの生成
+		this.mesh = new Mesh();
+		this.mesh.name = "Trail Mesh";
+		this.mesh.indexFormat = IndexFormat.UInt32; // 65535頂点を超えた場合の対応
+		this.mesh.SetVertices(this.vertices);
+		this.mesh.SetIndices(this.indicies, MeshTopology.Triangles, 0);
+
+		//// MeshRendererの生成
+		//var renderer = this.gameObject.AddComponent<MeshRenderer>();
+		//renderer.sharedMaterial = this.materialForJob;
+		//renderer.shadowCastingMode = ShadowCastingMode.Off;
+		//renderer.receiveShadows = false;
+		//renderer.lightProbeUsage = LightProbeUsage.Off;
+		//renderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
+		//renderer.allowOcclusionWhenDynamic = false;
+
+		//// MeshFilterの生成
+		//var filter = this.gameObject.AddComponent<MeshFilter>();
+		//filter.mesh = this.mesh;
+	}
+#endif
+
 	/// <summary>
 	/// 破棄
 	/// </summary>
@@ -142,10 +187,18 @@ public sealed class ManeuverTrail : MonoBehaviour {
 		this.nodeBuffer.Release();
 		this.inputBuffer.Release();
 		this.trailBuffer = this.nodeBuffer = this.inputBuffer = null;
+#if DRAW_MESH || UNITY_STANDALONE_OSX
+		this.trailArray.Dispose();
+		this.nodeArray.Dispose();
+		this.vertices.Dispose();
+		this.indicies.Dispose();
+		Object.Destroy(this.mesh);
+#endif
 	}
 
 	/// <summary>
 	/// 更新
+	/// ミサイル挙動の後で発行したいのでLateUpdate
 	/// </summary>
 	void LateUpdate() {
 		float time = Time.time;
@@ -155,30 +208,67 @@ public sealed class ManeuverTrail : MonoBehaviour {
 		this.csTrail.SetFloat(CSPARAM.TIME, time); // シェーダー内の_TimeとTime.timeは一致しないのでCPU側の時間で統一する
 		this.csTrail.SetFloat(CSPARAM.DELTA_TIME, deltaTime); // Time.timeで管理するのでdeltaTimeを渡す
 		this.csTrail.Dispatch(this.kernelTrail, this.threadGroup, 1, 1);
-		
-		//------------------------------------------------------------
-		// NOTE: 毎フレーム渡す必要はないが調整用
-		this.csTrail.SetFloat(CSPARAM.UPDATE_DISTANCE_MIN, this.updateDistaceMin);
-		this.csTrail.SetFloat(CSPARAM.LIFE, this.life);
-		this.material.SetFloat(CSPARAM.LIFE, this.life);
-		//------------------------------------------------------------
+
+		////------------------------------------------------------------
+		//// NOTE: 毎フレーム渡す必要はないが調整用
+		//this.csTrail.SetFloat(CSPARAM.UPDATE_DISTANCE_MIN, this.updateDistaceMin);
+		//this.csTrail.SetFloat(CSPARAM.LIFE, this.life);
+		//this.material.SetFloat(CSPARAM.LIFE, this.life);
+		////------------------------------------------------------------
 
 		this.material.SetFloat(CSPARAM.TIME, time);
 	}
 
+#if DRAW_MESH || UNITY_STANDALONE_OSX
+	/// <summary>
+	/// 描画前処理
+	/// LateUpdateでやってもいいがGPU同期待ちするので小細工
+	/// </summary>
+	private void OnRenderObject() {
+		// 非効率な設計だけどGPUの演算結果をCPU側に取り出す
+		AsyncGPUReadback.RequestIntoNativeArray(ref this.trailArray, this.trailBuffer).WaitForCompletion();
+		AsyncGPUReadback.RequestIntoNativeArray(ref this.nodeArray, this.nodeBuffer).WaitForCompletion();
+
+		int activeTrail = 0;
+		unsafe {
+			activeTrail = BurstGeometry.UpdateGeometry(this.trailNum, this.nodeNum,
+				this.material.GetFloat(CSPARAM.THICKNESS),
+				Time.time,
+				this.life,
+				(Trail*)this.trailArray.GetUnsafeReadOnlyPtr(),
+				(Node*)this.nodeArray.GetUnsafeReadOnlyPtr(),
+				(Vector3*)this.vertices.GetUnsafeReadOnlyPtr());
+				//this.trailArray, this.nodeArray, this.vertices); // Debug用
+		}
+
+		this.mesh.SetVertices(this.vertices);
+		if (activeTrail > 0) {
+			// 必要トレイル数分に制限する
+			int activeIndecies = activeTrail * (this.nodeNum - 1) * BurstGeometry.quadVtx * BurstGeometry.cols;
+			SubMeshDescriptor desc = new SubMeshDescriptor(0, activeIndecies, MeshTopology.Triangles);
+			mesh.SetSubMesh(0, desc, MeshUpdateFlags.Default);
+			this.mesh.RecalculateBounds();
+			this.materialForJob.SetPass(0);
+			Graphics.DrawMeshNow(this.mesh, Matrix4x4.identity);
+		}
+	}
+#else
 	/// <summary>
 	/// 描画
 	/// </summary>
 	private void OnRenderObject() {
-		//内部バッファ確認用
-		//this.trailBuffer.GetData(this.trailArray);
+		////内部バッファ確認用
+		//AsyncGPUReadback.RequestIntoNativeArray(ref this.trailArray, this.trailBuffer).WaitForCompletion();
+		//AsyncGPUReadback.RequestIntoNativeArray(ref this.nodeArray, this.nodeBuffer).WaitForCompletion();
+		////this.trailBuffer.GetData(this.trailArray);
+		////this.nodeBuffer.GetData(this.nodeArray);
 		//int trailIdx = this.trailArray[0].currentNodeIdx;
-		//this.nodeBuffer.GetData(this.nodeArray);
 
 		// NOTE: 描画タイミングを制御する場合はCommandBufferを使う、ただしSceneViewに出なくなるので開発中はオススメしない
 		this.material.SetPass(0);
-		Graphics.DrawProcedural(MeshTopology.Points, this.nodeNum, this.trailNum);
+		Graphics.DrawProceduralNow(MeshTopology.Points, this.nodeNum, this.trailNum);
 	}
+#endif
 	#endregion
 
 
